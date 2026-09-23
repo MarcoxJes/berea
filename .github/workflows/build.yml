@@ -1,0 +1,106 @@
+name: Build Berea APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Capacitor add android + sync
+        run: |
+          if [ ! -d "android" ]; then npx cap add android; fi
+          npx cap sync android
+
+      - name: Generate keystore and properties
+        run: |
+          cd android
+          keytool -genkeypair -v -keystore berea.keystore -alias berea -keyalg RSA -keysize 2048 -validity 10000 -storepass berea123 -keypass berea123 -dname "CN=Berea, O=Berea, C=CO"
+          printf 'storeFile=../berea.keystore\nstorePassword=bere a123\nkeyAlias=bere a\nkeyPassword=bere a123\n' | sed 's/bere a123/bere a123/g' > keystore.properties
+          cat > keystore.properties <<EOF
+          storeFile=../berea.keystore
+          storePassword=bere a123
+          keyAlias=bere a
+          keyPassword=bere a123
+          EOF
+          sed -i 's/bere a/berea/g' keystore.properties
+          cat keystore.properties
+
+      - name: Patch build.gradle
+        run: |
+          cd android/app
+          python3 <<'PY'
+import re
+with open('build.gradle') as f: s = f.read()
+
+if 'keystoreProperties' not in s:
+    s = s.replace(
+        "apply plugin: 'com.android.application'",
+        "apply plugin: 'com.android.application'\n\n"
+        "def keystoreProperties = new Properties()\n"
+        "def keystorePropertiesFile = rootProject.file('keystore.properties')\n"
+        "if (keystorePropertiesFile.exists()) {\n"
+        "    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n"
+        "}"
+    )
+
+if 'signingConfigs' not in s:
+    s = s.replace('android {',
+        "android {\n"
+        "    signingConfigs {\n"
+        "        release {\n"
+        "            if (keystorePropertiesFile.exists()) {\n"
+        "                keyAlias keystoreProperties['keyAlias']\n"
+        "                keyPassword keystoreProperties['keyPassword']\n"
+        "                storeFile file(keystoreProperties['storeFile'])\n"
+        "                storePassword keystoreProperties['storePassword']\n"
+        "            }\n"
+        "        }\n"
+        "    }",
+        1)
+
+s = re.sub(
+    r'buildTypes\s*\{\s*release\s*\{[^}]*\}',
+    "buildTypes {\n"
+    "        release {\n"
+    "            signingConfig signingConfigs.release\n"
+    "            minifyEnabled false\n"
+    "            shrinkResources false\n"
+    "        }\n"
+    "    }",
+    s, flags=re.DOTALL)
+
+with open('build.gradle','w') as f: f.write(s)
+PY
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: berea-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
