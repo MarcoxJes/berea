@@ -1828,7 +1828,7 @@ async function handleVerseAction(action,bookId,chapter,verse,txt,ref){
       break;
     }
     case 'word':{ Layers.closeSheet(); setTimeout(()=>openWordStudyFromVerse(bookId,chapter,verse,txt),120); break; }
-    case 'image':{ Layers.closeSheet(); setTimeout(()=>openVerseImage(bookId,chapter,verse),120); break; }
+    case 'image':{ openVerseImage(bookId,chapter,verse); break; }
     case 'link':{ Layers.closeSheet(); setTimeout(()=>openRelateDialog('verse',vref,ref),120); break; }
     case 'compare':{ Layers.closeSheet(); go('#/comparar/'+bookId+'/'+chapter); break; }
     case 'fav':{
