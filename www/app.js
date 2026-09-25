@@ -744,6 +744,7 @@ function toast(msg, icon){
 const Layers = {
   openSheet(build){
     const sh=$('#sheet'),sc=$('#scrim');
+    sh.style.transform=''; sh.classList.remove('dragging');
     $('#sheetHead').innerHTML='';
     $('#sheetBody').innerHTML='';
     build($('#sheetHead'),$('#sheetBody'));
@@ -751,12 +752,51 @@ const Layers = {
     haptic('light');
   },
   closeSheet(){
-    $('#sheet').classList.remove('on');
+    const sh=$('#sheet');
+    sh.style.transform=''; sh.classList.remove('dragging');
+    sh.classList.remove('on');
     if(!$('#panel').classList.contains('on')) $('#scrim').classList.remove('on');
   },
   closeAll(){ Layers.closeSheet(); $('#panel').classList.remove('on'); $('#scrim').classList.remove('on'); }
 };
 $('#scrim').addEventListener('click',()=>Layers.closeAll());
+
+(function(){
+  const sh=$('#sheet');
+  let pid=null,startY=0,dy=0,drag=false,lastY=0,lastT=0,vel=0;
+  sh.addEventListener('pointerdown',e=>{
+    if(pid!==null||!sh.classList.contains('on')) return;
+    if(e.button&&e.button!==0) return;
+    if(!e.target.closest('.sheet-grip,.sheet-head')) return;
+    if(e.target.closest('button,input,textarea,select,a')) return;
+    pid=e.pointerId; startY=lastY=e.clientY; lastT=Date.now(); dy=0; vel=0; drag=false;
+  });
+  sh.addEventListener('pointermove',e=>{
+    if(pid===null||e.pointerId!==pid) return;
+    dy=e.clientY-startY;
+    if(!drag){
+      if(dy<=4) return;
+      drag=true; sh.classList.add('dragging');
+      try{ sh.setPointerCapture(pid); }catch(err){}
+    }
+    sh.style.transform='translateY('+(dy>0?dy:dy*0.15)+'px)';
+    const now=Date.now(), dt=now-lastT;
+    if(dt>0){ vel=(e.clientY-lastY)/dt; lastY=e.clientY; lastT=now; }
+  });
+  const finish=(e,cancel)=>{
+    if(pid===null||(e&&e.pointerId!==pid)) return;
+    const id=pid; pid=null;
+    if(e){ try{ sh.releasePointerCapture(id); }catch(err){} }
+    if(!drag) return;
+    drag=false; sh.classList.remove('dragging');
+    const stale=Date.now()-lastT>140;
+    const close=!cancel&&dy>0&&(dy>sh.offsetHeight*0.28||(stale?0:vel)>0.7);
+    if(close){ haptic('light'); Layers.closeSheet(); }
+    else sh.style.transform='';
+  };
+  sh.addEventListener('pointerup',e=>finish(e,false));
+  sh.addEventListener('pointercancel',e=>finish(e,true));
+})();
 
 function askText({title,label,value,placeholder,multiline,confirmText}){
   return new Promise(resolve=>{
@@ -1042,6 +1082,14 @@ function progressRing(pct){
 }
 
 let _lastDepth=0;
+let _inPlace=false;
+function renderInPlace(){
+  const sc=$('#scroll');
+  const top=sc?sc.scrollTop:0;
+  _inPlace=true;
+  try{ render(); } finally{ _inPlace=false; }
+  if(sc) sc.scrollTop=top;
+}
 function render(){
   const r=currentRoute();
   const seg0=r[0]||'';
@@ -1263,7 +1311,26 @@ function openChapterPicker(bookId){
       return '<button class="chap-cell '+(ok?'':'na')+'" data-ch="'+n+'">'+n+'</button>';
     }).join('')+'</div>';
     head.querySelector('[data-close]').onclick=()=>Layers.closeSheet();
-    body.querySelectorAll('[data-ch]').forEach(c=>c.onclick=()=>{ haptic('light'); Layers.closeSheet(); go('#/leer/'+bookId+'/'+c.dataset.ch); });
+    body.querySelectorAll('[data-ch]').forEach(c=>c.onclick=()=>{ openVersePicker(bookId,+c.dataset.ch); });
+  });
+}
+function openVersePicker(bookId,chapter){
+  const text=getChapter(S.settings.versionId,bookId,chapter);
+  if(!text){ Layers.closeSheet(); go('#/leer/'+bookId+'/'+chapter); return; }
+  const total=text.filter(t=>typeof t==='string').length;
+  const r=currentRoute();
+  const curV=(r[0]==='leer'&&r[1]===bookId&&+r[2]===chapter)?parseInt(r[3]||'0',10)||0:0;
+  Layers.openSheet((head,body)=>{
+    head.innerHTML='<button class="icon-btn" data-back>'+ic('back')+'</button>'+
+      '<div style="flex:1"><div class="h2">Elegir versículo</div><div class="tiny">'+esc(refLabel(bookId,chapter))+'</div></div>'+
+      '<button class="icon-btn" data-close>'+ic('close')+'</button>';
+    body.innerHTML='<button class="btn btn-block" data-first style="margin-bottom:14px">'+ic('book')+' Desde el principio</button>'+
+      '<div class="chap-grid">'+Array.from({length:total},(_,i)=>i+1).map(n=>
+        '<button class="chap-cell'+(n===curV?' on':'')+'" data-vn="'+n+'">'+n+'</button>').join('')+'</div>';
+    head.querySelector('[data-back]').onclick=()=>{ openChapterPicker(bookId); };
+    head.querySelector('[data-close]').onclick=()=>Layers.closeSheet();
+    body.querySelector('[data-first]').onclick=()=>{ haptic('light'); Layers.closeSheet(); go('#/leer/'+bookId+'/'+chapter); };
+    body.querySelectorAll('[data-vn]').forEach(c=>c.onclick=()=>{ haptic('light'); Layers.closeSheet(); go('#/leer/'+bookId+'/'+chapter+'/'+c.dataset.vn); });
   });
 }
 
@@ -1428,7 +1495,7 @@ View.read=function(el,route){
   onScroll();
 
   const targetV=route[3]?parseInt(route[3],10):null;
-  if(targetV){
+  if(targetV && !_inPlace){
     let pulsed=false;
     const measure=()=>{
       const t=$('#v'+targetV,el);
@@ -1811,19 +1878,24 @@ function openVerseSheet(bookId,chapter,verse){
     head.querySelector('[data-close]').onclick=()=>Layers.closeSheet();
     body.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>{
       Data.toggleHighlight(bookId,chapter,verse,b.dataset.color);
-      haptic('medium'); Layers.closeSheet(); flashSave(); toast('Resaltado aplicado','highlight'); render();
-      setTimeout(()=>{ const v=$('#v'+verse); if(v){ v.classList.add('pulse'); setTimeout(()=>v.classList.remove('pulse'),1000); } },60);
+      haptic('medium'); Layers.closeSheet(); flashSave(); toast('Resaltado aplicado','highlight'); renderInPlace(); pulseVerse(verse);
     });
     const ch=body.querySelector('[data-clear-hl]');
-    if(ch) ch.onclick=()=>{ Data.toggleHighlight(bookId,chapter,verse,null); haptic('light'); Layers.closeSheet(); flashSave(); toast('Resaltado eliminado','trash'); render(); };
+    if(ch) ch.onclick=()=>{ Data.toggleHighlight(bookId,chapter,verse,null); haptic('light'); Layers.closeSheet(); flashSave(); toast('Resaltado eliminado','trash'); renderInPlace(); pulseVerse(verse); };
     body.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{
       S.settings.versionId=b.dataset.ver; save('settings'); haptic('light'); Layers.closeSheet(); toast('Versión: '+activeVersion().abbr,'refresh');
-      ensureVersions([b.dataset.ver]).then(()=>render());
+      ensureVersions([b.dataset.ver]).then(()=>renderInPlace());
     });
     body.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{ handleVerseAction(b.dataset.a,bookId,chapter,verse,txt,ref); });
   });
 }
 function colorCss(c){ return {'1':'#ffd43b','2':'#69db7c','3':'#74c0fc','4':'#ff9ec4','5':'#b197fc'}[c]||'#ffd43b'; }
+function pulseVerse(v){
+  setTimeout(()=>{
+    const el=$('#v'+v);
+    if(el){ el.classList.add('pulse'); setTimeout(()=>el.classList.remove('pulse'),1000); }
+  },60);
+}
 
 async function handleVerseAction(action,bookId,chapter,verse,txt,ref){
   const vref=bookId+'.'+chapter+'.'+verse;
@@ -1870,12 +1942,12 @@ async function handleVerseAction(action,bookId,chapter,verse,txt,ref){
     case 'compare':{ Layers.closeSheet(); go('#/comparar/'+bookId+'/'+chapter); break; }
     case 'fav':{
       const on=Data.toggleFavorite('verse',vref,ref);
-      haptic(on?'success':'light'); toast(on?'Añadido a favoritos':'Quitado','star'); Layers.closeSheet(); flashSave(); render();
+      haptic(on?'success':'light'); toast(on?'Añadido a favoritos':'Quitado','star'); Layers.closeSheet(); flashSave(); renderInPlace(); pulseVerse(verse);
       break;
     }
     case 'bm':{
       const on=Data.toggleBookmark(vref,ref,{book:bookId,chapter,verse});
-      haptic(on?'success':'light'); toast(on?'Marcador guardado':'Marcador eliminado','bookmark'); Layers.closeSheet(); flashSave(); render();
+      haptic(on?'success':'light'); toast(on?'Marcador guardado':'Marcador eliminado','bookmark'); Layers.closeSheet(); flashSave(); renderInPlace(); pulseVerse(verse);
       break;
     }
     case 'copy':{ await copyText('"'+txt+'" — '+ref); haptic('success'); toast('Copiado','copy'); Layers.closeSheet(); break; }
