@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2732 2732" width="2732" height="2732">
+<defs>
+<linearGradient id="star" x1="0%" y1="0%" x2="0%" y2="100%">
+<stop offset="0%" stop-color="#ffd94a"/>
+<stop offset="50%" stop-color="#f5b800"/>
+<stop offset="100%" stop-color="#d18f00"/>
+</linearGradient>
+<radialGradient id="halo" cx="50%" cy="50%" r="50%">
+<stop offset="0%" stop-color="#f5b800" stop-opacity="0.22"/>
+<stop offset="100%" stop-color="#f5b800" stop-opacity="0"/>
+</radialGradient>
+</defs>
+<rect width="2732" height="2732" fill="#ffffff"/>
+
+<g transform="translate(1366 1240) scale(2.2) translate(-256 -220)">
+<circle cx="256" cy="120" r="90" fill="url(#halo)"/>
+<path d="M 256 388 Q 224 362 182 356 Q 138 352 96 372 L 88 428 Q 138 408 184 412 Q 224 416 256 438 Z" fill="#0d1526"/>
+<path d="M 256 388 Q 288 362 330 356 Q 374 352 416 372 L 424 428 Q 374 408 328 412 Q 288 416 256 438 Z" fill="#0d1526"/>
+<path d="M 88 432 Q 138 412 184 416 Q 224 420 256 442 L 256 452 Q 224 430 184 426 Q 138 422 88 442 Z" fill="#0d1526" opacity="0.45"/>
+<path d="M 424 432 Q 374 412 328 416 Q 288 420 256 442 L 256 452 Q 288 430 328 426 Q 374 422 424 442 Z" fill="#0d1526" opacity="0.45"/>
+<path d="M 256 388 Q 234 358 256 328 Q 278 298 256 268 Q 234 238 256 208 Q 278 178 256 148" fill="none" stroke="#0d1526" stroke-width="7.5" stroke-linecap="round"/>
+<g transform="translate(256 108)">
+<path d="M 0 -58 Q 9 -12 58 0 Q 9 12 0 58 Q -9 12 -58 0 Q -9 -12 0 -58 Z" fill="url(#star)"/>
+<path d="M 0 -30 Q 5 -6 30 0 Q 5 6 0 30 Q -5 6 -30 0 Q -5 -6 0 -30 Z" fill="#fffbe6"/>
+<circle cx="-74" cy="0" r="3" fill="#f5b800"/>
+<circle cx="74" cy="0" r="3" fill="#f5b800"/>
+<circle cx="0" cy="-76" r="3" fill="#f5b800"/>
+</g>
+</g>
+
+<text x="1366" y="2160" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="150" font-weight="700" text-anchor="middle" fill="#0d1526" letter-spacing="-5">Study Berea</text>
+<text x="1366" y="2290" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="52" font-weight="500" text-anchor="middle" fill="#8b95a6" letter-spacing="14">BIBLIOTECA BÍBLICA PERSONAL</text>
+</svg>
