@@ -125,6 +125,12 @@ jobs:
           find android/app/src/main/res -name 'splash.png' -print -quit | grep -q . || { echo "FALTA splash.png"; exit 1; }
           find android/app/src/main/res -name 'ic_launcher*.png' -print -quit | grep -q . || { echo "FALTA ic_launcher"; exit 1; }
 
+      - name: Keystore de depuracion estable
+        run: |
+          mkdir -p "$HOME/.android"
+          cp .github/debug.keystore "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
+
       - name: Build Debug APK
         run: |
           cd android
