@@ -1202,7 +1202,6 @@ function applyTheme(t){
   if(isNative && Cap.StatusBar){
     try{
       Cap.StatusBar.setStyle({style: mode==='dark'?'DARK':'LIGHT'});
-      Cap.StatusBar.setBackgroundColor({color: mode==='dark'?'#0a0e15':'#f4f6f9'});
     }catch(e){}
   }
 }
@@ -3613,6 +3612,14 @@ async function boot(){
         }
       });
     }catch(e){}
+    const openDeepLink=url=>{
+      const i=url?url.indexOf('#'):-1;
+      if(i<0) return;
+      const h=url.slice(i);
+      if(h.length>1&&h!==location.hash) go(h);
+    };
+    Cap.App.addListener('appUrlOpen',e=>openDeepLink(e.url));
+    Cap.App.getLaunchUrl().then(l=>openDeepLink(l&&l.url)).catch(()=>{});
   }
 
   if(isNative && Cap.LocalNotifications){

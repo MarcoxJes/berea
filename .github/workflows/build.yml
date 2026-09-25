@@ -47,6 +47,64 @@ jobs:
           grep -q SCHEDULE_EXACT_ALARM "$f" || sed -i 's|<application|<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />\n    <application|' "$f"
           grep -n uses-permission "$f"
 
+      - name: Edge-to-edge, atajos del icono y predictive back
+        run: |
+          m=android/app/src/main
+          f="$m/AndroidManifest.xml"
+          mkdir -p "$m/res/xml"
+          cat > "$m/res/xml/shortcuts.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+            <shortcut android:shortcutId="versiculo" android:enabled="true" android:icon="@mipmap/ic_launcher"
+                      android:shortcutShortLabel="Versículo del día" android:shortcutLongLabel="Abre el versículo de hoy">
+              <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/" />
+            </shortcut>
+            <shortcut android:shortcutId="lector" android:enabled="true" android:icon="@mipmap/ic_launcher"
+                      android:shortcutShortLabel="Lector" android:shortcutLongLabel="Continúa tu lectura">
+              <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/biblia" />
+            </shortcut>
+            <shortcut android:shortcutId="buscar" android:enabled="true" android:icon="@mipmap/ic_launcher"
+                      android:shortcutShortLabel="Buscar" android:shortcutLongLabel="Busca en toda la Biblia">
+              <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/buscar" />
+            </shortcut>
+          </shortcuts>
+          EOF
+          if grep -q 'android.app.shortcuts' "$f"; then
+            echo "atajos: ya inyectados"
+          else
+            sed -i 's|</application>|        <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />\n    </application>|' "$f"
+          fi
+          if grep -q 'android:theme="@style/AppTheme"' "$f"; then
+            mkdir -p "$m/res/values" "$m/res/values-night"
+            cat > "$m/res/values/berea_edge.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <style name="BereaEdge" parent="AppTheme">
+              <item name="android:statusBarColor">@android:color/transparent</item>
+              <item name="android:navigationBarColor">@android:color/transparent</item>
+              <item name="android:windowLightNavigationBar">true</item>
+            </style>
+          </resources>
+          EOF
+            cat > "$m/res/values-night/berea_edge.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <style name="BereaEdge" parent="AppTheme">
+              <item name="android:statusBarColor">@android:color/transparent</item>
+              <item name="android:navigationBarColor">@android:color/transparent</item>
+              <item name="android:windowLightNavigationBar">false</item>
+            </style>
+          </resources>
+          EOF
+            sed -i 's|android:theme="@style/AppTheme"|android:theme="@style/BereaEdge"\n        android:enableOnBackInvokedCallback="true"|' "$f"
+          else
+            echo "AVISO: no se encontro android:theme=\"@style/AppTheme\"; edge-to-edge omitido"
+          fi
+          echo "== manifest =="
+          grep -n 'BereaEdge\|enableOnBackInvokedCallback\|app.shortcuts' "$f"
+          echo "== recursos =="
+          find "$m/res" -name 'berea_edge.xml' -o -name 'shortcuts.xml'
+
       - name: Generate icons
         run: npx @capacitor/assets generate --android || true
 
