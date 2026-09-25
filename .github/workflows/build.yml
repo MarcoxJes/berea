@@ -56,7 +56,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
             <shortcut android:shortcutId="versiculo" android:enabled="true" android:icon="@mipmap/ic_launcher"
-                      android:shortcutShortLabel="Versículo del día" android:shortcutLongLabel="Abre el versículo de hoy">
+                      android:shortcutShortLabel="Versículo" android:shortcutLongLabel="Abre el versículo de hoy">
               <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/" />
             </shortcut>
             <shortcut android:shortcutId="lector" android:enabled="true" android:icon="@mipmap/ic_launcher"
@@ -107,10 +107,10 @@ jobs:
 
       - name: Generate icons
         run: |
-          npx @capacitor/assets generate --android
+          npx @capacitor/assets generate --android || echo "AVISO: @capacitor/assets generate falló; se conservan los iconos por defecto"
           echo "== recursos generados =="
-          find android/app/src/main/res -name 'splash.png' | head -3
-          find android/app/src/main/res -name 'ic_launcher*.png' | head -3
+          find android/app/src/main/res -name 'splash.png'
+          find android/app/src/main/res -name 'ic_launcher*.png'
           find android/app/src/main/res -name 'splash.png' -print -quit | grep -q . || { echo "FALTA splash.png"; exit 1; }
           find android/app/src/main/res -name 'ic_launcher*.png' -print -quit | grep -q . || { echo "FALTA ic_launcher"; exit 1; }
 
