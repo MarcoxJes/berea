@@ -824,7 +824,7 @@ function currentRoute(){
   h=h.split('?')[0];
   return h.split('/').filter(Boolean);
 }
-function go(hash){ location.hash=hash; }
+function go(hash){ if(location.hash===hash) render(); else location.hash=hash; }
 function isActive(href){
   const cur=(location.hash||'#/').split('?')[0];
   if(href==='#/') return cur==='#/'||cur==='';
@@ -1430,15 +1430,34 @@ View.read=function(el,route){
   const targetV=route[3]?parseInt(route[3],10):null;
   if(targetV){
     let pulsed=false;
-    const jump=force=>{
+    const measure=()=>{
+      const t=$('#v'+targetV,el);
+      if(!t) return null;
+      return Math.max(0,scroller.scrollTop+t.getBoundingClientRect().top-scroller.getBoundingClientRect().top-8);
+    };
+    const pulse=()=>{
+      if(pulsed) return;
       const t=$('#v'+targetV,el);
       if(!t) return;
-      const want=Math.max(0,scroller.scrollTop+t.getBoundingClientRect().top-scroller.getBoundingClientRect().top-8);
-      if(force||Math.abs(scroller.scrollTop-want)>16) scroller.scrollTo({top:want});
-      if(!pulsed){ pulsed=true; t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'),1200); }
+      pulsed=true;
+      t.classList.add('pulse');
+      setTimeout(()=>t.classList.remove('pulse'),1200);
     };
-    setTimeout(()=>jump(true),240);
-    setTimeout(()=>jump(false),560);
+    setTimeout(()=>{
+      const w=measure();
+      if(w===null) return;
+      scroller.scrollTo({top:w,behavior:'smooth'});
+      let done=false;
+      const settle=()=>{
+        if(done) return;
+        done=true;
+        const w2=measure();
+        if(w2!==null&&Math.abs(scroller.scrollTop-w2)>16) scroller.scrollTo({top:w2});
+        pulse();
+      };
+      scroller.addEventListener('scrollend',settle,{once:true});
+      setTimeout(settle,1500);
+    },240);
   }
   renderChapterRelated(bookId,chapter);
   renderRelations(bookId,chapter);
@@ -3640,7 +3659,7 @@ async function boot(){
       const i=url?url.indexOf('#'):-1;
       if(i<0) return;
       const h=url.slice(i);
-      if(h.length>1&&h!==location.hash) go(h);
+      if(h.length>1) go(h);
     };
     Cap.App.addListener('appUrlOpen',e=>openDeepLink(e.url));
     Cap.App.getLaunchUrl().then(l=>openDeepLink(l&&l.url)).catch(()=>{});
