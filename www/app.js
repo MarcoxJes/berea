@@ -134,6 +134,7 @@ async function download(name, content, mime){
     try{
       const b64 = btoa(unescape(encodeURIComponent(typeof content==='string'?content:'')));
       await Cap.Filesystem.writeFile({ path:name, data:b64, directory:'DOCUMENTS', recursive:true });
+      haptic('success');
       toast('Guardado en Documentos','download');
       return;
     }catch(e){}
@@ -142,6 +143,7 @@ async function download(name, content, mime){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
+  haptic('success');
   setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 async function downloadBlob(name, blob){
@@ -154,6 +156,7 @@ async function downloadBlob(name, blob){
         r.readAsDataURL(blob);
       });
       await Cap.Filesystem.writeFile({ path:name, data:b64, directory:'DOCUMENTS', recursive:true });
+      haptic('success');
       toast('Guardado en Documentos','download');
       return;
     }catch(e){ console.warn(e); }
@@ -161,6 +164,7 @@ async function downloadBlob(name, blob){
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
+  haptic('success');
   setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
 async function haptic(style){
@@ -358,8 +362,10 @@ async function exportPDF(title, html){
           directory: 'DOCUMENTS',
           recursive: true
         });
+        haptic('success');
         const ask = await confirmDialog('PDF listo', 'Guardado en Documentos. ¿Quieres compartirlo?', 'Compartir');
         if(ask){
+          haptic('light');
           await Cap.Share.share({ title: safe, url: w.uri, dialogTitle: 'Compartir PDF' });
         } else {
           toast('Guardado en Documentos','check');
@@ -1615,6 +1621,7 @@ async function openVerseImage(bookId, chapter, verse){
     Layers.closeSheet();
   };
   $('#vi-share',body).onclick = async ()=>{
+    haptic('medium');
     if(isNative && Cap.Filesystem && Cap.Share){
       try{
         const b64 = dataUrl.split(',')[1];
@@ -1910,6 +1917,7 @@ function openReadingSettings(){
     b.querySelector('#lh').oninput=e=>{ S.settings.readLh=+e.target.value; e.target.previousElementSibling.textContent='Interlineado — '+e.target.value; apply(); };
     b.querySelectorAll('[data-font]').forEach(el=>el.onclick=()=>{
       S.settings.readFont=el.dataset.font; save('settings');
+      haptic('medium');
       b.querySelectorAll('[data-font]').forEach(x=>x.classList.toggle('active',x===el)); apply();
     });
     b.querySelector('#anTgl').onclick=()=>{
@@ -1917,6 +1925,7 @@ function openReadingSettings(){
       b.querySelector('#anTgl').classList.toggle('on', S.settings.autoNight);
       b.querySelector('#anRange').style.display = S.settings.autoNight?'block':'none';
       save('settings'); applyTheme(S.settings.theme);
+      haptic('medium');
     };
     const anS = b.querySelector('#anS'), anE = b.querySelector('#anE');
     if(anS) anS.oninput = e=>{ S.settings.autoNightStart=+e.target.value; e.target.previousElementSibling.textContent='Desde las '+e.target.value+':00'; save('settings'); applyTheme(S.settings.theme); };
@@ -2121,6 +2130,7 @@ View.doctrineEntry=function(el,route){
   el.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>go('#/estudio/'+b.dataset.s));
   el.querySelector('[data-new]').onclick=()=>{
     const s=Data.createStudy({title:'Estudio: '+d.title,links:[{type:'doctrine',id:d.id,label:d.title}]});
+    haptic('success');
     go('#/estudio/'+s.id);
   };
   el.querySelector('[data-rel]').onclick=()=>openRelateDialog('doctrine',d.id,d.title);
@@ -2165,7 +2175,7 @@ View.studies=function(el){
     {icon:'plus',title:'Nuevo',onClick:async()=>{
       const t=await askText({title:'Nuevo estudio',label:'Título',placeholder:'Ej. La muerte al pecado'});
       if(!t) return;
-      const s=Data.createStudy({title:t}); go('#/estudio/'+s.id);
+    const s=Data.createStudy({title:t}); haptic('success'); go('#/estudio/'+s.id);
     }}
   ]});
   let list=S.studies.filter(s=>!s.deletedAt);
@@ -2200,7 +2210,7 @@ View.studies=function(el){
   if(nb) nb.onclick=async()=>{
     const t=await askText({title:'Nuevo estudio',label:'Título'});
     if(!t) return;
-    const s=Data.createStudy({title:t}); go('#/estudio/'+s.id);
+    const s=Data.createStudy({title:t}); haptic('success'); go('#/estudio/'+s.id);
   };
 };
 
@@ -2219,7 +2229,7 @@ function openFolderManager(){
       };
       b.querySelectorAll('[data-del]').forEach(x=>x.onclick=async()=>{
         const ok=await confirmDialog('Eliminar carpeta','Los elementos no se borran.','Eliminar');
-        if(ok){ Data.deleteFolder(x.dataset.del); renderList(); }
+        if(ok){ haptic('error'); Data.deleteFolder(x.dataset.del); renderList(); }
       });
     };
     h.innerHTML='<div class="h2" style="flex:1">Carpetas</div><button class="icon-btn" data-close>'+ic('close')+'</button>';
@@ -2357,7 +2367,7 @@ View.study=function(el,route){
   el.querySelector('[data-status]').onclick=()=>pickStatus(s);
   el.querySelector('[data-tags]').onclick=async()=>{
     const t=await askText({title:'Etiquetas',label:'Separadas por comas',value:(s.tags||[]).join(', ')});
-    if(t!==null){ s.tags=t.split(',').map(x=>x.trim()).filter(Boolean); save('studies'); render(); }
+    if(t!==null){ s.tags=t.split(',').map(x=>x.trim()).filter(Boolean); save('studies'); haptic('success'); render(); }
   };
   el.querySelector('[data-link-el]').onclick=()=>openLinkDialog(s);
   el.querySelectorAll('[data-r]').forEach(b=>{
@@ -2694,7 +2704,7 @@ function openNoteOptions(n){
       }
       if(o==='trash'){
         const ok=await confirmDialog('Mover a papelera','Podrás recuperarla después.','Mover');
-        if(ok){ Data.trashNote(n.id); go('#/notas'); toast('En papelera','trash'); }
+        if(ok){ haptic('error'); Data.trashNote(n.id); go('#/notas'); toast('En papelera','trash'); }
       }
     });
   });
@@ -2907,7 +2917,7 @@ View.search=function(el){
   const gc=$('#gclear',el);
   if(gc) gc.onclick=()=>{ location.replace('#/buscar'); render(); };
   el.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{
-    location.replace('#/buscar?q='+encodeURIComponent(q)+'&tab='+b.dataset.tab); render();
+    location.replace('#/buscar?q='+encodeURIComponent(q)+'&tab='+b.dataset.tab); haptic('light'); render();
   });
   const res=$('#gres',el);
   if(!q){
@@ -3134,6 +3144,7 @@ View.adminList=function(el,route){
       if(ok){
         const i=cfg.arr.findIndex(x=>x.id===b.dataset.rm);
         if(i>=0) cfg.arr.splice(i,1);
+        haptic('error');
         save(kind); paint($('#aq',el).value.trim()); toast('Eliminado','trash');
       }
     });
@@ -3286,6 +3297,7 @@ View.settings=function(el){
     const ok = await toggleDailyNotif(on);
     if(!ok) return;
     nTgl.classList.toggle('on', S.settings.dailyNotif);
+    haptic('light');
     nRange.style.display = S.settings.dailyNotif ? 'block' : 'none';
     toast(S.settings.dailyNotif ? 'Notificación diaria activada' : 'Notificación desactivada','bell');
   };
@@ -3306,6 +3318,7 @@ View.settings=function(el){
         schedule: { at: in5 },
         smallIcon: 'ic_stat_icon'
       }]});
+      haptic('medium');
       toast('Notificación enviada en 5 s','bell');
     }catch(e){ console.warn(e); toast('No se pudo enviar','info'); }
   };
@@ -3360,6 +3373,7 @@ View.settings=function(el){
   $('#wipe',el).onclick=async()=>{
     const ok=await confirmDialog('Borrar todos los datos','Se eliminarán notas, estudios, resaltados, favoritos y ajustes. Esta acción no se puede deshacer.','Borrar todo');
     if(!ok) return;
+    haptic('error');
     for(const k of ['settings','notes','studies','highlights','bookmarks','favorites','inbox','relations','folders','words','doctrines','explore','vod','bible','history','versions','stats','savedSearches']){
       await NativeStore.del(k);
     }
