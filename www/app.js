@@ -1162,7 +1162,7 @@ View.home=function(el){
   el.querySelectorAll('[data-inbox-go]').forEach(b=>b.onclick=()=>go('#/inbox'));
 
   if(vod){
-    const rd=$('[data-vod-read]',el); if(rd) rd.onclick=()=>go('#/leer/'+vod.book+'/'+vod.chapter+(vod.verse?'/'+vod.verse:''));
+    const rd=$('[data-vod-read]',el); if(rd) rd.onclick=()=>go('#/leer/'+vod.book+'/'+vod.chapter);
     const sv=$('[data-vod-save]',el);
     if(sv) sv.onclick=()=>{
       Data.addInbox({kind:'verse',title:refLabel(vod.book,vod.chapter,vod.verse),subtitle:'Versículo del día · '+todayKey(),book:vod.book,chapter:vod.chapter,verse:vod.verse,text:verseText(vod.book,vod.chapter,vod.verse)});
@@ -1408,7 +1408,7 @@ View.read=function(el,route){
     const pct=scroller.scrollTop/max;
     const ring=document.querySelector('.progress-ring .fg');
     if(ring){ const r=9,c=2*Math.PI*r; ring.setAttribute('stroke-dashoffset',(c*(1-pct)).toFixed(2)); }
-    const mid=scroller.scrollTop+scroller.clientHeight*0.35;
+    const mid=scroller.scrollTop+scroller.clientHeight*0.15;
     let cur=null;
     for(const v of verseEls){ if(v.offsetTop<=mid) cur=v; else break; }
     if(cur && !cur.classList.contains('current')){
@@ -1435,26 +1435,28 @@ View.read=function(el,route){
       if(!t) return null;
       return Math.max(0,scroller.scrollTop+t.getBoundingClientRect().top-scroller.getBoundingClientRect().top-8);
     };
-    const pulse=()=>{
-      if(pulsed) return;
-      const t=$('#v'+targetV,el);
-      if(!t) return;
-      pulsed=true;
-      t.classList.add('pulse');
-      setTimeout(()=>t.classList.remove('pulse'),1200);
-    };
     setTimeout(()=>{
       const w=measure();
       if(w===null) return;
-      scroller.scrollTo({top:w,behavior:'smooth'});
       let done=false;
       const settle=()=>{
         if(done) return;
         done=true;
         const w2=measure();
         if(w2!==null&&Math.abs(scroller.scrollTop-w2)>16) scroller.scrollTo({top:w2});
-        pulse();
+        const t=$('#v'+targetV,el);
+        if(t){
+          verseEls.forEach(x=>x.classList.remove('current'));
+          t.classList.add('current');
+          if(!pulsed){
+            pulsed=true;
+            t.classList.add('pulse');
+            setTimeout(()=>t.classList.remove('pulse'),1200);
+          }
+        }
       };
+      if(Math.abs(scroller.scrollTop-w)<=1){ settle(); return; }
+      scroller.scrollTo({top:w,behavior:'smooth'});
       scroller.addEventListener('scrollend',settle,{once:true});
       setTimeout(settle,1500);
     },240);
