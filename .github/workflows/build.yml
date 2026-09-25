@@ -106,7 +106,13 @@ jobs:
           find "$m/res" -name 'berea_edge.xml' -o -name 'shortcuts.xml'
 
       - name: Generate icons
-        run: npx @capacitor/assets generate --android || true
+        run: |
+          npx @capacitor/assets generate --android
+          echo "== recursos generados =="
+          find android/app/src/main/res -name 'splash.png' | head -3
+          find android/app/src/main/res -name 'ic_launcher*.png' | head -3
+          find android/app/src/main/res -name 'splash.png' -print -quit | grep -q . || { echo "FALTA splash.png"; exit 1; }
+          find android/app/src/main/res -name 'ic_launcher*.png' -print -quit | grep -q . || { echo "FALTA ic_launcher"; exit 1; }
 
       - name: Build Debug APK
         run: |

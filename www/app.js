@@ -3578,6 +3578,13 @@ async function handleNotifClick(data){
 }
 
 async function boot(){
+  let splashGone=false;
+  const hideSplash=()=>{
+    if(splashGone||!isNative||!Cap.SplashScreen) return;
+    splashGone=true;
+    try{ Cap.SplashScreen.hide(); }catch(e){}
+  };
+  setTimeout(hideSplash, 2000);
   await loadPersisted();
   applyTheme(S.settings.theme);
   document.documentElement.style.setProperty('--read-size',S.settings.readSize+'px');
@@ -3650,13 +3657,10 @@ async function boot(){
     if(e.key==='Escape'){ if(document.body.classList.contains('zen')) toggleZen(false); else Layers.closeAll(); }
   });
 
-  if(isNative && Cap.SplashScreen){
-    try{ setTimeout(()=>Cap.SplashScreen.hide(), 400); }catch(e){}
-  }
-
   if(!location.hash) location.replace('#/');
   render();
   loadBundled(S.settings.versionId).catch(()=>{});
+  try{ requestAnimationFrame(()=>requestAnimationFrame(hideSplash)); }catch(e){}
 }
 
 boot().catch(err=>{
