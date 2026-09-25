@@ -181,6 +181,18 @@ function flashSave(){
   const el=$('#saveDot'); if(!el) return;
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
 }
+function keepCaretVisible(){
+  const sel=window.getSelection();
+  if(!sel||!sel.rangeCount) return;
+  const r=sel.getRangeAt(0).getBoundingClientRect();
+  if(!r||!r.top) return;
+  const sc=$('#scroll'); if(!sc) return;
+  const vh=window.innerHeight||document.documentElement.clientHeight;
+  const limit=vh*0.6;
+  if(r.bottom<=limit) return;
+  sc.scrollBy({top:Math.min(200,r.bottom-limit+48),behavior:'smooth'});
+}
+function caretVisibleSoon(){ keepCaretVisible(); setTimeout(keepCaretVisible,320); }
 
 /* ============================================================
    PDF GENERATOR
@@ -2300,7 +2312,8 @@ View.study=function(el,route){
     s.title=title.value; s.updatedAt=Date.now(); ind.classList.add('saving');
     debounce(()=>{ save('studies'); flashSave(); ind.classList.remove('saving'); ind.classList.add('saved'); },600)();
   });
-  body.addEventListener('input',()=>{ ind.classList.add('saving'); ind.classList.remove('saved'); auto(); });
+  body.addEventListener('input',()=>{ ind.classList.add('saving'); ind.classList.remove('saved'); auto(); keepCaretVisible(); });
+  body.addEventListener('click',caretVisibleSoon);
   body.addEventListener('keydown',e=>{
     if(e.key!==' ' && e.key!=='Enter') return;
     if(e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
@@ -2613,7 +2626,8 @@ View.note=function(el,route){
     n.title=title.value; n.updatedAt=Date.now(); ind.classList.add('saving');
     debounce(()=>{ save('notes'); flashSave(); ind.classList.remove('saving'); ind.classList.add('saved'); },500)();
   });
-  body.addEventListener('input',()=>{ ind.classList.add('saving'); ind.classList.remove('saved'); persist(); });
+  body.addEventListener('input',()=>{ ind.classList.add('saving'); ind.classList.remove('saved'); persist(); keepCaretVisible(); });
+  body.addEventListener('click',caretVisibleSoon);
   body.addEventListener('keydown',e=>{
     if(e.key!==' ' && e.key!=='Enter') return;
     if(e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
