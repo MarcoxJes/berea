@@ -645,10 +645,12 @@ function seedVod(){
    ============================================================ */
 const Data = {
   pushHistory(book, chapter, verse){
+    const lr=S.settings.lastRead;
+    const keep=lr.book===book&&lr.chapter===chapter&&lr.verse;
     S.history = S.history.filter(h=>!(h.book===book&&h.chapter===chapter));
     S.history.unshift({book,chapter,verse:verse||null,at:Date.now()});
     S.history = S.history.slice(0,60);
-    S.settings.lastRead = {book,chapter,verse:verse||S.settings.lastRead.verse};
+    S.settings.lastRead = {book,chapter,verse:verse||keep||null};
     save('settings'); save('history');
     const k=todayKey();
     if(!S.stats.days.includes(k)){ S.stats.days.push(k); S.stats.days=S.stats.days.slice(-60); save('stats'); }
@@ -1095,7 +1097,7 @@ View.home=function(el){
     if(h<20) return 'Buenas tardes';
     return 'Buenas noches';
   })();
-  const heroTxt=(verseText(lr.book,lr.chapter,lr.verse)||'').slice(0,120);
+  const heroTxt=(verseText(lr.book,lr.chapter,lr.verse||1)||'').slice(0,120);
 
   el.innerHTML=
   '<div class="page">'+
@@ -1153,14 +1155,14 @@ View.home=function(el){
   '</div>';
 
   const o=$('[data-open-read]',el);
-  if(o) o.onclick=()=>{ haptic('medium'); go('#/leer/'+lr.book+'/'+lr.chapter); };
+  if(o) o.onclick=()=>{ haptic('medium'); go('#/leer/'+lr.book+'/'+lr.chapter+(lr.verse?'/'+lr.verse:'')); };
   el.querySelectorAll('[data-open-study]').forEach(b=>b.onclick=()=>go('#/estudio/'+b.dataset.openStudy));
   el.querySelectorAll('[data-open-note]').forEach(b=>b.onclick=()=>go('#/nota/'+b.dataset.openNote));
   el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   el.querySelectorAll('[data-inbox-go]').forEach(b=>b.onclick=()=>go('#/inbox'));
 
   if(vod){
-    const rd=$('[data-vod-read]',el); if(rd) rd.onclick=()=>go('#/leer/'+vod.book+'/'+vod.chapter);
+    const rd=$('[data-vod-read]',el); if(rd) rd.onclick=()=>go('#/leer/'+vod.book+'/'+vod.chapter+(vod.verse?'/'+vod.verse:''));
     const sv=$('[data-vod-save]',el);
     if(sv) sv.onclick=()=>{
       Data.addInbox({kind:'verse',title:refLabel(vod.book,vod.chapter,vod.verse),subtitle:'Versículo del día · '+todayKey(),book:vod.book,chapter:vod.chapter,verse:vod.verse,text:verseText(vod.book,vod.chapter,vod.verse)});
@@ -1230,7 +1232,7 @@ View.bible=function(el){
     return '<button class="book-item" data-book="'+b.id+'"><span style="flex:1">'+esc(b.name)+'</span>'+
       '<span class="tiny mono">'+b.chapters+'</span>'+(available?'<span class="tag" style="font-size:10px">texto</span>':'')+'</button>';
   }
-  $('[data-continue]',el).onclick=()=>{ haptic('medium'); go('#/leer/'+lr.book+'/'+lr.chapter); };
+  $('[data-continue]',el).onclick=()=>{ haptic('medium'); go('#/leer/'+lr.book+'/'+lr.chapter+(lr.verse?'/'+lr.verse:'')); };
   el.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>openChapterPicker(b.dataset.book));
   const ri=$('#refInput',el);
   ri.addEventListener('keydown',e=>{
@@ -1336,7 +1338,7 @@ View.read=function(el,route){
     '<div class="section-head"><div class="h2">Relacionado</div></div>'+
     '<div id="relBlock"></div><div style="height:24px"></div></div>';
 
-  Data.pushHistory(bookId,chapter,S.settings.lastRead.verse);
+  Data.pushHistory(bookId,chapter,route[3]?parseInt(route[3],10):null);
   const p=$('[data-prev]',el); if(p) p.onclick=()=>{ const n2=chapterWithText(-1); if(n2) go('#/leer/'+bookId+'/'+n2); else toast('No hay capítulos anteriores con texto','info'); };
   const n=$('[data-next]',el); if(n) n.onclick=()=>{ const n2=chapterWithText(1); if(n2) go('#/leer/'+bookId+'/'+n2); else toast('No hay más capítulos con texto','info'); };
 
@@ -1400,6 +1402,7 @@ View.read=function(el,route){
 
   const scroller=$('#scroll');
   const verseEls=Array.from(el.querySelectorAll('#verses p'));
+  let lrTimer=null;
   const onScroll=()=>{
     const max=Math.max(1,scroller.scrollHeight-scroller.clientHeight);
     const pct=scroller.scrollTop/max;
@@ -1411,17 +1414,31 @@ View.read=function(el,route){
     if(cur && !cur.classList.contains('current')){
       verseEls.forEach(x=>x.classList.remove('current'));
       cur.classList.add('current');
+      const cv=parseInt(cur.dataset.v,10);
+      if(cv){
+        S.settings.lastRead={book:bookId,chapter,verse:cv};
+        clearTimeout(lrTimer);
+        lrTimer=setTimeout(()=>save('settings'),800);
+      }
     }
   };
+  if(scroller.__onScroll) scroller.removeEventListener('scroll',scroller.__onScroll);
+  scroller.__onScroll=onScroll;
   scroller.addEventListener('scroll',onScroll,{passive:true});
   onScroll();
 
-  const targetV=route[3]?parseInt(route[3],10):(S.settings.lastRead.book===bookId&&S.settings.lastRead.chapter===chapter?S.settings.lastRead.verse:null);
+  const targetV=route[3]?parseInt(route[3],10):null;
   if(targetV){
-    setTimeout(()=>{
+    let pulsed=false;
+    const jump=force=>{
       const t=$('#v'+targetV,el);
-      if(t){ scroller.scrollTo({top:t.offsetTop-80,behavior:'smooth'}); t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'),1200); }
-    },240);
+      if(!t) return;
+      const want=Math.max(0,scroller.scrollTop+t.getBoundingClientRect().top-scroller.getBoundingClientRect().top-8);
+      if(force||Math.abs(scroller.scrollTop-want)>16) scroller.scrollTo({top:want});
+      if(!pulsed){ pulsed=true; t.classList.add('pulse'); setTimeout(()=>t.classList.remove('pulse'),1200); }
+    };
+    setTimeout(()=>jump(true),240);
+    setTimeout(()=>jump(false),560);
   }
   renderChapterRelated(bookId,chapter);
   renderRelations(bookId,chapter);
@@ -2950,7 +2967,7 @@ View.search=function(el){
   if(tab==='todo'||tab==='biblia'){
     const hits=searchBible(q,tab==='todo'?14:80);
     if(hits.length) out.push({title:'Biblia',count:hits.length,items:hits.map(h=>({
-      icon:'book',title:refLabel(h.book,h.chapter,h.verse),sub:h.text,go:()=>go('#/leer/'+h.book+'/'+h.chapter+'/'+h.verse)
+      icon:'book',title:refLabel(h.book,h.chapter,h.verse),sub:h.text,go:()=>go('#/leer/'+h.book+'/'+h.chapter+(h.verse?'/'+h.verse:''))
     }))});
   }
   if(tab==='todo'||tab==='palabras'){
