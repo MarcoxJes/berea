@@ -500,14 +500,25 @@ function loadBundled(id){
   });
   return _bundledPending[id];
 }
-function loadBundledIfAny(ids){
-  let started=false;
-  ids.forEach(id=>{
-    if(bundledData(id)||_bundledPending[id]||_bundledFailed[id]) return;
-    started=true;
-    loadBundled(id).then(()=>render());
-  });
-  return started;
+function versionLabel(id){ const v=(S.versions||[]).find(x=>x.id===id); return v?v.name:(id||''); }
+let _loadOvN=0;
+function showLoadOverlay(msg){
+  _loadOvN++;
+  let ov=document.getElementById('loadOv');
+  if(!ov){ ov=document.createElement('div'); ov.id='loadOv'; ov.className='load-ov'; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="img-gen-spin"></div><p class="tiny" style="margin:0">'+esc(msg||'Preparando…')+'</p>';
+  ov.classList.add('on');
+}
+function hideLoadOverlay(){
+  _loadOvN=Math.max(0,_loadOvN-1);
+  const ov=document.getElementById('loadOv');
+  if(ov && !_loadOvN) ov.classList.remove('on');
+}
+function ensureVersions(ids,msg){
+  const need=(ids||[]).filter(id=>isBundled(id)&&!bundledData(id)&&!_bundledFailed[id]);
+  if(!need.length) return Promise.resolve(false);
+  showLoadOverlay(msg||('Preparando '+versionLabel(need[0])+'…'));
+  return Promise.all(need.map(loadBundled)).then(()=>{ hideLoadOverlay(); return true; },()=>{ hideLoadOverlay(); return true; });
 }
 function activeVersion(){
   const V = S.versions || [];
@@ -1265,14 +1276,19 @@ View.read=function(el,route){
   });
 
   if(!text){
+    const pendingText = isBundled(ver.id) && !bundledData(ver.id) && !_bundledFailed[ver.id];
+    const info = pendingText
+      ? '<div class="empty" style="padding:40px 0"><div class="img-gen-spin"></div><p>Preparando '+esc(ver.name)+'…</p><small>El texto se carga mientras ves la app.</small></div>'
+      : '<div class="empty" style="padding:40px 0">'+ic('wifiOff')+'<p>Sin texto para este capítulo</p><small>La versión <b>'+esc(ver.name)+'</b> sólo incluye la muestra de dominio público.</small></div>';
     el.innerHTML='<div class="reader"><div class="chapter-head"><div class="chapter-book">'+esc(b.name)+'</div><h1 class="chapter-title">Capítulo '+chapter+'</h1></div>'+
-      '<div class="empty" style="padding:40px 0">'+ic('wifiOff')+'<p>Sin texto para este capítulo</p><small>La versión <b>'+esc(ver.name)+'</b> sólo incluye la muestra de dominio público.</small></div>'+
+      info+
       '<div class="read-actions">'+
       (chapter>1?'<button class="btn" data-prev>'+ic('back')+' '+(chapter-1)+'</button>':'')+
       (chapter<b.chapters?'<button class="btn" data-next>'+(chapter+1)+' '+ic('fwd')+'</button>':'')+
       '</div></div>';
     const p=$('[data-prev]',el); if(p) p.onclick=()=>{ const n2=chapterWithText(-1); if(n2) go('#/leer/'+bookId+'/'+n2); };
     const n=$('[data-next]',el); if(n) n.onclick=()=>{ const n2=chapterWithText(1); if(n2) go('#/leer/'+bookId+'/'+n2); };
+    if(pendingText) loadBundled(ver.id).then(()=>{ const r=currentRoute(); if(r[0]==='leer') render(); });
     return;
   }
 
@@ -1644,7 +1660,6 @@ View.compare = function(el, route){
   if(!b || !chapter){ el.innerHTML='<div class="page"><div class="empty">'+ic('info')+'<p>Pasaje no válido</p></div></div>'; return; }
   setTopbar({ title:'Comparar · '+refLabel(bookId,chapter), back:true, actions:[] });
 
-  loadBundledIfAny((S.versions||[]).map(v=>v.id));
   const vs = (S.versions||[]).filter(v => !!getChapter(v.id, bookId, chapter) || isBundled(v.id));
   if(vs.length < 2){
     el.innerHTML = '<div class="page">'+
@@ -1659,13 +1674,14 @@ View.compare = function(el, route){
   const ids = vs.map(v=>v.id);
   const sel = compareIds(ids, S.settings.compareA, S.settings.compareB);
   let idA = sel[0], idB = sel[1];
+  ensureVersions([idA,idB],'Preparando comparación…').then(loaded=>{ if(loaded) render(); });
   const vA = vs.find(v=>v.id===idA), vB = vs.find(v=>v.id===idB);
   const pick = (col,id)=>{
     const r = compareSwap(col,idA,idB,id);
     idA = r[0]; idB = r[1];
     S.settings.compareA = idA; S.settings.compareB = idB;
     save('settings'); haptic('light');
-    if(isBundled(id) && !bundledData(id)) loadBundled(id).then(()=>render());
+    ensureVersions([id]).then(()=>render());
     render();
   };
   const openPicker = col=>{
@@ -1746,7 +1762,7 @@ function openVerseSheet(bookId,chapter,verse){
     if(ch) ch.onclick=()=>{ Data.toggleHighlight(bookId,chapter,verse,null); haptic('light'); Layers.closeSheet(); flashSave(); toast('Resaltado eliminado','trash'); render(); };
     body.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>{
       S.settings.versionId=b.dataset.ver; save('settings'); haptic('light'); Layers.closeSheet(); toast('Versión: '+activeVersion().abbr,'refresh');
-      loadBundled(b.dataset.ver).then(()=>render());
+      ensureVersions([b.dataset.ver]).then(()=>render());
     });
     body.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{ handleVerseAction(b.dataset.a,bookId,chapter,verse,txt,ref); });
   });
@@ -1923,7 +1939,7 @@ function openVersionPicker(){
     h.querySelector('[data-close]').onclick=()=>Layers.closeSheet();
     b.querySelectorAll('[data-v]').forEach(el=>el.onclick=()=>{
       S.settings.versionId=el.dataset.v; save('settings'); haptic('light'); Layers.closeSheet(); toast('Versión: '+activeVersion().abbr,'refresh');
-      loadBundled(el.dataset.v).then(()=>render());
+      ensureVersions([el.dataset.v]).then(()=>render());
     });
   });
 }
@@ -3601,9 +3617,9 @@ async function boot(){
     try{ setTimeout(()=>Cap.SplashScreen.hide(), 400); }catch(e){}
   }
 
-  await loadBundled(S.settings.versionId).catch(()=>{});
   if(!location.hash) location.replace('#/');
   render();
+  loadBundled(S.settings.versionId).catch(()=>{});
 }
 
 boot().catch(err=>{
