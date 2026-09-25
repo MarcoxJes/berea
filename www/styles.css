@@ -300,13 +300,23 @@ body.zen .zen-exit{display:grid;}
 .img-menu button.on{background:var(--accent-soft);color:var(--accent);}
 .img-menu button:active{background:var(--bg-hover);}
 .verse-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--font-ui);
-  font-weight: 700;
-  font-size: 0.92em;
-  color: var(--text-2);
-  margin: 1.6em 0 0.6em;
-  letter-spacing: 0.01em;
-  text-transform: none;
+  font-weight: 750;
+  font-size: 0.8em;
+  color: var(--accent);
+  margin: 2em 0 0.8em;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.verse-heading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-soft);
+  border-radius: 1px;
 }
 .img-gen{display:flex;flex-direction:column;align-items:center;gap:14px;padding:40px 0 34px;}
 .img-gen-spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:imgGenSpin .8s linear infinite;}
