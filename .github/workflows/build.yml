@@ -51,20 +51,31 @@ jobs:
         run: |
           m=android/app/src/main
           f="$m/AndroidManifest.xml"
-          mkdir -p "$m/res/xml"
+          mkdir -p "$m/res/xml" "$m/res/values"
+          cat > "$m/res/values/berea_shortcuts.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <string name="berea_sc_versiculo">Versículo</string>
+            <string name="berea_sc_versiculo_long">Abre el versículo de hoy</string>
+            <string name="berea_sc_lector">Lector</string>
+            <string name="berea_sc_lector_long">Continúa tu lectura</string>
+            <string name="berea_sc_buscar">Buscar</string>
+            <string name="berea_sc_buscar_long">Busca en toda la Biblia</string>
+          </resources>
+          EOF
           cat > "$m/res/xml/shortcuts.xml" <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
             <shortcut android:shortcutId="versiculo" android:enabled="true" android:icon="@mipmap/ic_launcher"
-                      android:shortcutShortLabel="Versículo" android:shortcutLongLabel="Abre el versículo de hoy">
+                      android:shortcutShortLabel="@string/berea_sc_versiculo" android:shortcutLongLabel="@string/berea_sc_versiculo_long">
               <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/" />
             </shortcut>
             <shortcut android:shortcutId="lector" android:enabled="true" android:icon="@mipmap/ic_launcher"
-                      android:shortcutShortLabel="Lector" android:shortcutLongLabel="Continúa tu lectura">
+                      android:shortcutShortLabel="@string/berea_sc_lector" android:shortcutLongLabel="@string/berea_sc_lector_long">
               <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/biblia" />
             </shortcut>
             <shortcut android:shortcutId="buscar" android:enabled="true" android:icon="@mipmap/ic_launcher"
-                      android:shortcutShortLabel="Buscar" android:shortcutLongLabel="Busca en toda la Biblia">
+                      android:shortcutShortLabel="@string/berea_sc_buscar" android:shortcutLongLabel="@string/berea_sc_buscar_long">
               <intent android:action="android.intent.action.VIEW" android:data="capacitor://localhost/#/buscar" />
             </shortcut>
           </shortcuts>
