@@ -264,6 +264,8 @@ mark{background:color-mix(in srgb,var(--accent) 25%,transparent);color:inherit;b
 .chap-cell:active{transform:scale(.9);}
 .chap-cell.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent);}
 .chap-cell.na{opacity:.32;}
+.time-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
+.time-grid.mins{grid-template-columns:repeat(4,1fr);max-width:230px;}
 .autosave{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-3);margin-top:18px;}
 .autosave .dot{width:6px;height:6px;border-radius:50%;background:var(--border-strong);transition:background .3s;}
 .autosave.saving .dot{background:var(--warn);animation:liveBreath 1s var(--ease-in-out) infinite;}

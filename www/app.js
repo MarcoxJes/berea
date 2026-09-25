@@ -3026,6 +3026,38 @@ function searchBible(q,limit){
   return out;
 }
 
+function notifTimeLabel(){
+  return 'Aviso diario · '+String(S.settings.dailyNotifHour).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0');
+}
+function openNotifTimePicker(onSaved){
+  let hh=S.settings.dailyNotifHour, mm=S.settings.dailyNotifMinute;
+  Layers.openSheet((head,body)=>{
+    head.innerHTML='<div class="h2" style="flex:1">Hora del aviso</div><button class="icon-btn" data-close>'+ic('close')+'</button>';
+    body.innerHTML=
+      '<div class="tiny" style="font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Hora</div>'+
+      '<div class="time-grid">'+Array.from({length:24},(_,i)=>'<button class="chap-cell" data-h="'+i+'">'+String(i).padStart(2,'0')+'</button>').join('')+'</div>'+
+      '<div class="tiny" style="font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin:18px 0 8px">Minutos</div>'+
+      '<div class="time-grid mins">'+Array.from({length:12},(_,i)=>i*5).map(v=>'<button class="chap-cell" data-m="'+v+'">'+String(v).padStart(2,'0')+'</button>').join('')+'</div>'+
+      '<div style="display:flex;gap:10px;margin-top:22px"><button class="btn btn-block" id="tCancel">Cancelar</button>'+
+      '<button class="btn btn-primary btn-block" id="tOk">Guardar</button></div>';
+    const paint=()=>{
+      body.querySelectorAll('[data-h]').forEach(c=>c.classList.toggle('on',+c.dataset.h===hh));
+      body.querySelectorAll('[data-m]').forEach(c=>c.classList.toggle('on',+c.dataset.m===mm));
+    };
+    paint();
+    body.querySelectorAll('[data-h]').forEach(c=>c.onclick=()=>{ hh=+c.dataset.h; paint(); haptic('light'); });
+    body.querySelectorAll('[data-m]').forEach(c=>c.onclick=()=>{ mm=+c.dataset.m; paint(); haptic('light'); });
+    head.querySelector('[data-close]').onclick=()=>Layers.closeSheet();
+    body.querySelector('#tCancel').onclick=()=>{ haptic('light'); Layers.closeSheet(); };
+    body.querySelector('#tOk').onclick=()=>{
+      S.settings.dailyNotifHour=hh; S.settings.dailyNotifMinute=mm;
+      save('settings'); Notif.schedule30(); haptic('success');
+      toast('Aviso diario a las '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0'),'bell');
+      Layers.closeSheet();
+      if(onSaved) onSaved();
+    };
+  });
+}
 View.admin=function(el){
   setTopbar({title:'Panel',actions:[]});
   el.innerHTML='<div class="page-wide">'+
@@ -3044,11 +3076,8 @@ View.admin=function(el){
       '<div class="switch"><div><div class="switch-txt">Versículo del día</div><div class="switch-sub">A la hora que elijas</div></div>'+
       '<div class="tgl '+(S.settings.dailyNotif?'on':'')+'" id="pNotifTgl"></div></div>'+
       '<div id="pNotifRange" style="display:'+(S.settings.dailyNotif?'block':'none')+'">'+
-        '<div class="field" style="margin-top:14px"><label id="pNotifHourLbl">Hora — '+String(S.settings.dailyNotifHour).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0')+'</label>'+
-        '<input type="range" min="0" max="23" value="'+S.settings.dailyNotifHour+'" id="pNotifHour" style="width:100%"></div>'+
-        '<div class="field"><label id="pNotifMinLbl">Minutos — '+String(S.settings.dailyNotifMinute).padStart(2,'0')+'</label>'+
-        '<input type="range" min="0" max="59" step="5" value="'+S.settings.dailyNotifMinute+'" id="pNotifMin" style="width:100%"></div>'+
-        '<p class="tiny" style="line-height:1.6;margin-top:4px">Se programan las próximas 30 notificaciones y se renuevan cada vez que abres la app.</p>'+
+        '<button class="btn btn-block" id="pNotifTime" style="margin-top:14px">'+ic('clock')+' '+notifTimeLabel()+'</button>'+
+        '<p class="tiny" style="line-height:1.6;margin-top:8px">Se programan las próximas 30 notificaciones y se renuevan cada vez que abres la app.</p>'+
       '</div>'+
     '</div>'+
     '<div class="section-head"><div class="h2">Datos</div></div>'+
@@ -3057,12 +3086,8 @@ View.admin=function(el){
     '<div style="height:20px"></div></div>';
   el.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
 
-  const paintNotifTime=()=>{
-    const a=String(S.settings.dailyNotifHour).padStart(2,'0'), b=String(S.settings.dailyNotifMinute).padStart(2,'0');
-    const hl=$('#pNotifHourLbl',el), ml=$('#pNotifMinLbl',el);
-    if(hl) hl.textContent='Hora — '+a+':'+b;
-    if(ml) ml.textContent='Minutos — '+b;
-  };
+  const pT=$('#pNotifTime',el);
+  if(pT) pT.onclick=()=>openNotifTimePicker(()=>render());
   const pTgl=$('#pNotifTgl',el);
   if(pTgl) pTgl.onclick=async()=>{
     const ok=await toggleDailyNotif(!S.settings.dailyNotif);
@@ -3073,15 +3098,6 @@ View.admin=function(el){
     if(rg) rg.style.display=S.settings.dailyNotif?'block':'none';
     toast(S.settings.dailyNotif?'Notificación diaria activada a las '+String(S.settings.dailyNotifHour).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0'):'Notificación desactivada','bell');
   };
-  const pH=$('#pNotifHour',el), pM=$('#pNotifMin',el);
-  if(pH){
-    pH.oninput=e=>{ S.settings.dailyNotifHour=+e.target.value; save('settings'); paintNotifTime(); };
-    pH.onchange=()=>{ haptic('light'); Notif.schedule30(); toast('Aviso diario a las '+String(S.settings.dailyNotifHour).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0'),'bell'); };
-  }
-  if(pM){
-    pM.oninput=e=>{ S.settings.dailyNotifMinute=+e.target.value; save('settings'); paintNotifTime(); };
-    pM.onchange=()=>{ haptic('light'); Notif.schedule30(); toast('Aviso diario a las '+String(S.settings.dailyNotifHour).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0'),'bell'); };
-  }
 };
 
 View.adminList=function(el,route){
@@ -3210,11 +3226,8 @@ View.settings=function(el){
       '<div class="switch"><div><div class="switch-txt">Versículo del día</div><div class="switch-sub">Una notificación diaria con el versículo</div></div>'+
       '<div class="tgl '+(st.dailyNotif?'on':'')+'" id="notifTgl"></div></div>'+
       '<div id="notifRange" style="display:'+(st.dailyNotif?'block':'none')+'">'+
-        '<div class="field" style="margin-top:14px"><label>Hora — '+String(st.dailyNotifHour).padStart(2,'0')+':'+String(st.dailyNotifMinute).padStart(2,'0')+'</label>'+
-        '<input type="range" min="0" max="23" value="'+st.dailyNotifHour+'" id="notifHour" style="width:100%"></div>'+
-        '<div class="field"><label>Minutos — '+String(st.dailyNotifMinute).padStart(2,'0')+'</label>'+
-        '<input type="range" min="0" max="59" step="5" value="'+st.dailyNotifMinute+'" id="notifMin" style="width:100%"></div>'+
-        '<p class="tiny" style="line-height:1.6;margin-top:4px">Se programan las próximas 30 notificaciones. Se renovarán cada vez que abras la app.</p>'+
+        '<button class="btn btn-block" id="notifTime" style="margin-top:14px">'+ic('clock')+' '+notifTimeLabel()+'</button>'+
+        '<p class="tiny" style="line-height:1.6;margin-top:8px">Se programan las próximas 30 notificaciones. Se renovarán cada vez que abras la app.</p>'+
       '</div>'+
       '<button class="btn btn-block" id="notifTest" style="margin-top:12px">'+ic('bell')+' Enviar notificación de prueba</button>'+
     '</div>'+
@@ -3276,19 +3289,8 @@ View.settings=function(el){
     nRange.style.display = S.settings.dailyNotif ? 'block' : 'none';
     toast(S.settings.dailyNotif ? 'Notificación diaria activada' : 'Notificación desactivada','bell');
   };
-  const nHour = $('#notifHour', el), nMin = $('#notifMin', el);
-  if(nHour) nHour.oninput = e=>{
-    S.settings.dailyNotifHour = +e.target.value;
-    e.target.previousElementSibling.textContent = 'Hora — '+String(e.target.value).padStart(2,'0')+':'+String(S.settings.dailyNotifMinute).padStart(2,'0');
-    save('settings');
-    Notif.schedule30();
-  };
-  if(nMin) nMin.oninput = e=>{
-    S.settings.dailyNotifMinute = +e.target.value;
-    e.target.previousElementSibling.textContent = 'Minutos — '+String(e.target.value).padStart(2,'0');
-    save('settings');
-    Notif.schedule30();
-  };
+  const nTime = $('#notifTime', el);
+  if(nTime) nTime.onclick = ()=>openNotifTimePicker(()=>render());
   const nTest = $('#notifTest', el);
   if(nTest) nTest.onclick = async ()=>{
     const p = Notif.plugin();
